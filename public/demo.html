@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket API Server - Demo Interface</title>
+    <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 WebSocket API Server</h1>
+            <p class="subtitle">Real-time messaging and inference orchestration</p>
+            <div class="status-bar">
+                <div class="status-indicator" id="status-indicator">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">Disconnected</span>
+                </div>
+                <div class="client-id" id="client-id"></div>
+            </div>
+        </header>
+
+        <main>
+            <!-- Connection Panel -->
+            <section class="panel connection-panel">
+                <h2>🔌 Connection</h2>
+                <div class="form-group">
+                    <label for="ws-url">WebSocket URL:</label>
+                    <input type="text" id="ws-url" value="ws://localhost:8080/ws" placeholder="ws://localhost:8080/ws">
+                </div>
+                <div class="form-group">
+                    <label for="auth-token">Auth Token (optional):</label>
+                    <input type="text" id="auth-token" placeholder="Leave empty for dev mode">
+                </div>
+                <div class="button-group">
+                    <button id="connect-btn" class="btn btn-primary">Connect</button>
+                    <button id="disconnect-btn" class="btn btn-secondary" disabled>Disconnect</button>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="panel actions-panel">
+                <h2>⚡ Quick Actions</h2>
+                <div class="button-grid">
+                    <button class="btn btn-action" data-action="ping">
+                        <span class="icon">🏓</span>
+                        <span>Send Ping</span>
+                    </button>
+                    <button class="btn btn-action" data-action="stats">
+                        <span class="icon">📊</span>
+                        <span>Get Stats</span>
+                    </button>
+                    <button class="btn btn-action" data-action="broadcast">
+                        <span class="icon">📢</span>
+                        <span>Broadcast Message</span>
+                    </button>
+                    <button class="btn btn-action" data-action="inference">
+                        <span class="icon">🤖</span>
+                        <span>Inference Request</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Message Composer -->
+            <section class="panel composer-panel">
+                <h2>✉️ Custom Message</h2>
+                <div class="form-group">
+                    <label for="message-type">Message Type:</label>
+                    <select id="message-type">
+                        <option value="PING">PING</option>
+                        <option value="BROADCAST">BROADCAST</option>
+                        <option value="DIRECT_MESSAGE">DIRECT_MESSAGE</option>
+                        <option value="ROOM_MESSAGE">ROOM_MESSAGE</option>
+                        <option value="SUBSCRIBE">SUBSCRIBE</option>
+                        <option value="UNSUBSCRIBE">UNSUBSCRIBE</option>
+                        <option value="INFERENCE_REQUEST">INFERENCE_REQUEST</option>
+                        <option value="GET_STATS">GET_STATS</option>
+                        <option value="GET_CONNECTIONS">GET_CONNECTIONS</option>
+                        <option value="custom">Custom JSON...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="message-payload">Payload (JSON):</label>
+                    <textarea id="message-payload" rows="6" placeholder='{"message": "Hello, World!"}'></textarea>
+                </div>
+                <button id="send-message-btn" class="btn btn-primary" disabled>Send Message</button>
+            </section>
+
+            <!-- Rooms/Channels -->
+            <section class="panel rooms-panel">
+                <h2>🏠 Rooms / Channels</h2>
+                <div class="form-group">
+                    <input type="text" id="channel-name" placeholder="Enter channel name">
+                    <div class="button-group">
+                        <button id="join-channel-btn" class="btn btn-small" disabled>Join</button>
+                        <button id="leave-channel-btn" class="btn btn-small btn-secondary" disabled>Leave</button>
+                    </div>
+                </div>
+                <div class="channels-list" id="channels-list">
+                    <p class="muted">No channels joined</p>
+                </div>
+            </section>
+
+            <!-- Message Log -->
+            <section class="panel log-panel">
+                <div class="log-header">
+                    <h2>📝 Message Log</h2>
+                    <div class="log-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="auto-scroll" checked>
+                            <span>Auto-scroll</span>
+                        </label>
+                        <button id="clear-log-btn" class="btn btn-small btn-secondary">Clear</button>
+                    </div>
+                </div>
+                <div class="log-content" id="log-content">
+                    <p class="muted">No messages yet. Connect to start.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>WebSocket API Server v1.0.0 | <a href="https://github.com" target="_blank">Documentation</a></p>
+        </footer>
+    </div>
+
+    <script src="demo.js"></script>
+</body>
+</html>
