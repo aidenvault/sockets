@@ -1,0 +1,40 @@
+{
+  "name": "websocket-api-server",
+  "version": "1.0.0",
+  "description": "Production-ready WebSocket API server for real-time messaging, streaming, and inference orchestration",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "echo \"Run tests here\" && exit 0",
+    "lint": "echo \"Linter not configured\" && exit 0"
+  },
+  "keywords": [
+    "websocket",
+    "real-time",
+    "api",
+    "messaging",
+    "inference",
+    "orchestration"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "redis": "^4.6.12",
+    "nats": "^2.19.0",
+    "winston": "^3.11.0",
+    "uuid": "^9.0.1",
+    "axios": "^1.6.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
