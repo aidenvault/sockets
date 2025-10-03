@@ -1,0 +1,97 @@
+# WebSocket API Server - Docker Compose Configuration
+version: '3.8'
+
+services:
+  # WebSocket API Server
+  websocket-server:
+    build: .
+    container_name: websocket-api-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Server Configuration
+      NODE_ENV: production
+      PORT: 8080
+      HOST: 0.0.0.0
+      
+      # Authentication (CHANGE THESE!)
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      API_KEY: ${API_KEY:-change-this-api-key}
+      
+      # Redis Configuration
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      
+      # Inference Configuration
+      INFERENCE_ENABLED: ${INFERENCE_ENABLED:-false}
+      INFERENCE_MODE: ${INFERENCE_MODE:-rest}
+      INFERENCE_REST_URL: ${INFERENCE_REST_URL:-http://inference:5000/inference}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FILE: /app/logs/app.log
+      
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_MAX_REQUESTS: 100
+      RATE_LIMIT_WINDOW_MS: 60000
+      
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    networks:
+      - websocket-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # Redis for Pub/Sub
+  redis:
+    image: redis:7-alpine
+    container_name: websocket-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - websocket-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Optional: Redis Commander (Web UI for Redis)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: websocket-redis-commander
+    restart: unless-stopped
+    profiles:
+      - tools  # Only start with --profile tools
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      - redis
+    networks:
+      - websocket-network
+
+networks:
+  websocket-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local

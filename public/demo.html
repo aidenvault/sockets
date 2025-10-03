@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket API Server - Demo</title>
+    <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 WebSocket API Server</h1>
+            <p class="subtitle">Real-time Messaging, Streaming, and Inference Orchestration</p>
+        </header>
+
+        <div class="connection-panel">
+            <div class="connection-status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <div class="connection-info">
+                <span id="clientIdDisplay">Client ID: Not connected</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="control-panel">
+                <section class="card">
+                    <h2>Connection</h2>
+                    <div class="form-group">
+                        <label for="serverUrl">Server URL</label>
+                        <input type="text" id="serverUrl" value="ws://localhost:8080/ws">
+                    </div>
+                    <div class="form-group">
+                        <label for="authType">Authentication Type</label>
+                        <select id="authType">
+                            <option value="none">None</option>
+                            <option value="apiKey">API Key</option>
+                            <option value="jwt">JWT Token</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="authValueGroup" style="display: none;">
+                        <label for="authValue">Auth Value</label>
+                        <input type="text" id="authValue" placeholder="Enter API key or JWT token">
+                    </div>
+                    <div class="button-group">
+                        <button id="connectBtn" class="btn btn-primary">Connect</button>
+                        <button id="disconnectBtn" class="btn btn-secondary" disabled>Disconnect</button>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>Basic Operations</h2>
+                    <div class="button-group vertical">
+                        <button id="pingBtn" class="btn" disabled>Send Ping</button>
+                        <button id="statusBtn" class="btn" disabled>Get Status</button>
+                        <button id="listClientsBtn" class="btn" disabled>List Clients</button>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>Broadcast Message</h2>
+                    <div class="form-group">
+                        <label for="broadcastChannel">Channel</label>
+                        <input type="text" id="broadcastChannel" value="default" placeholder="Channel name">
+                    </div>
+                    <div class="form-group">
+                        <label for="broadcastMessage">Message</label>
+                        <textarea id="broadcastMessage" rows="3" placeholder="Enter message to broadcast"></textarea>
+                    </div>
+                    <button id="broadcastBtn" class="btn btn-accent" disabled>Broadcast</button>
+                </section>
+
+                <section class="card">
+                    <h2>Inference Request</h2>
+                    <div class="form-group">
+                        <label for="inferenceInput">Input</label>
+                        <textarea id="inferenceInput" rows="3" placeholder="Enter inference input"></textarea>
+                    </div>
+                    <button id="inferenceBtn" class="btn btn-accent" disabled>Run Inference</button>
+                </section>
+
+                <section class="card">
+                    <h2>Channel Subscription</h2>
+                    <div class="form-group">
+                        <label for="subscribeChannel">Channel</label>
+                        <input type="text" id="subscribeChannel" value="default" placeholder="Channel name">
+                    </div>
+                    <div class="button-group">
+                        <button id="subscribeBtn" class="btn" disabled>Subscribe</button>
+                        <button id="unsubscribeBtn" class="btn" disabled>Unsubscribe</button>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>Direct Message</h2>
+                    <div class="form-group">
+                        <label for="targetClientId">Target Client ID</label>
+                        <input type="text" id="targetClientId" placeholder="Enter client ID">
+                    </div>
+                    <div class="form-group">
+                        <label for="directMessage">Message</label>
+                        <textarea id="directMessage" rows="2" placeholder="Enter message"></textarea>
+                    </div>
+                    <button id="directMessageBtn" class="btn" disabled>Send Direct Message</button>
+                </section>
+            </div>
+
+            <div class="log-panel">
+                <div class="card">
+                    <div class="log-header">
+                        <h2>Activity Log</h2>
+                        <button id="clearLogBtn" class="btn btn-small">Clear</button>
+                    </div>
+                    <div id="logContainer" class="log-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="demo.js"></script>
+</body>
+</html>
