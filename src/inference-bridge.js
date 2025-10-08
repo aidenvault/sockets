@@ -1,4 +1,5 @@
 import axios from 'axios';
+import CircuitBreaker from 'opossum';
 import config from './config.js';
 import { logger, utils } from './utils.js';
 import broker from './broker.js';
@@ -12,9 +13,20 @@ class InferenceBridge {
   constructor() {
     this.pendingRequests = new Map();
     this.inferenceEndpoints = new Map();
+    this.circuitBreakers = new Map();
     this.defaultEndpoint = config.inference.endpoint;
     this.timeout = config.inference.timeout;
     this.retries = config.inference.retries;
+    
+    // Circuit breaker options
+    this.circuitBreakerOptions = {
+      timeout: this.timeout, // If request takes longer than timeout, trigger error
+      errorThresholdPercentage: 50, // When 50% of requests fail, open the circuit
+      resetTimeout: 30000, // After 30 seconds, try again (half-open state)
+      rollingCountTimeout: 10000, // Track stats over 10 second window
+      rollingCountBuckets: 10, // Divide rolling window into 10 buckets
+      volumeThreshold: 10, // Minimum requests before circuit can open
+    };
     
     // Add default endpoint
     this.addEndpoint('default', this.defaultEndpoint);
@@ -43,6 +55,56 @@ class InferenceBridge {
   }
 
   /**
+   * Get or create circuit breaker for an endpoint
+   * @param {string} endpointName - Endpoint name
+   * @returns {CircuitBreaker} Circuit breaker instance
+   */
+  getCircuitBreaker(endpointName) {
+    if (!this.circuitBreakers.has(endpointName)) {
+      const endpoint = this.inferenceEndpoints.get(endpointName);
+      
+      if (!endpoint) {
+        throw new Error(`Unknown inference endpoint: ${endpointName}`);
+      }
+
+      // Create circuit breaker for this endpoint
+      const breaker = new CircuitBreaker(
+        async (requestId, payload) => {
+          return await this.sendHttpInferenceRequest(requestId, payload, endpoint);
+        },
+        this.circuitBreakerOptions
+      );
+
+      // Setup event listeners
+      breaker.on('open', () => {
+        logger.warn(`Circuit breaker opened for endpoint: ${endpointName}`, {
+          endpoint: endpoint.url,
+        });
+      });
+
+      breaker.on('halfOpen', () => {
+        logger.info(`Circuit breaker half-open for endpoint: ${endpointName}`, {
+          endpoint: endpoint.url,
+        });
+      });
+
+      breaker.on('close', () => {
+        logger.info(`Circuit breaker closed for endpoint: ${endpointName}`, {
+          endpoint: endpoint.url,
+        });
+      });
+
+      breaker.on('fallback', (result) => {
+        logger.debug(`Circuit breaker fallback triggered for: ${endpointName}`);
+      });
+
+      this.circuitBreakers.set(endpointName, breaker);
+    }
+
+    return this.circuitBreakers.get(endpointName);
+  }
+
+  /**
    * Add an inference endpoint
    * @param {string} name - Endpoint name/identifier
    * @param {string} url - Endpoint URL
@@ -54,6 +116,11 @@ class InferenceBridge {
       ...options,
     });
     logger.info('Inference endpoint added', { name, url });
+
+    // Create circuit breaker for this endpoint if it doesn't exist
+    if (!this.circuitBreakers.has(name)) {
+      this.getCircuitBreaker(name);
+    }
   }
 
   /**
@@ -108,8 +175,28 @@ class InferenceBridge {
         timestamp: Date.now(),
       });
     } else {
-      // Direct HTTP request to inference endpoint
-      this.sendHttpInferenceRequest(requestId, payload, endpoint);
+      // Direct HTTP request to inference endpoint with circuit breaker
+      try {
+        const breaker = this.getCircuitBreaker(endpointName);
+        
+        // Use circuit breaker to execute the request
+        breaker.fire(requestId, payload).catch((error) => {
+          logger.error('Circuit breaker request failed', {
+            requestId,
+            endpoint: endpointName,
+            error: error.message,
+            circuitOpen: breaker.opened,
+          });
+          this.rejectRequest(requestId, error);
+        });
+      } catch (error) {
+        logger.error('Failed to get circuit breaker', {
+          requestId,
+          endpoint: endpointName,
+          error: error.message,
+        });
+        this.rejectRequest(requestId, error);
+      }
     }
 
     return responsePromise;
@@ -283,10 +370,21 @@ class InferenceBridge {
    * @returns {Object} Statistics
    */
   getStats() {
+    const circuitBreakerStats = {};
+    
+    // Collect circuit breaker stats for each endpoint
+    for (const [name, breaker] of this.circuitBreakers.entries()) {
+      circuitBreakerStats[name] = {
+        state: breaker.opened ? 'open' : breaker.halfOpen ? 'half-open' : 'closed',
+        stats: breaker.stats,
+      };
+    }
+
     return {
       pendingRequests: this.pendingRequests.size,
       endpoints: Array.from(this.inferenceEndpoints.keys()),
       enabled: config.inference.enabled,
+      circuitBreakers: circuitBreakerStats,
     };
   }
 

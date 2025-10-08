@@ -8,6 +8,7 @@ import { logger, auth, utils, connectionManager, rateLimiter } from './utils.js'
 import router from './router.js';
 import broker from './broker.js';
 import inferenceBridge from './inference-bridge.js';
+import * as metrics from './metrics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -130,6 +131,18 @@ class WebSocketAPIServer {
       });
     });
 
+    // Prometheus metrics endpoint
+    this.app.get('/metrics', async (req, res) => {
+      try {
+        res.set('Content-Type', metrics.getContentType());
+        const metricsData = await metrics.getMetrics();
+        res.end(metricsData);
+      } catch (error) {
+        logger.error('Error generating metrics', { error: error.message });
+        res.status(500).json({ error: 'Failed to generate metrics' });
+      }
+    });
+
     // Serve demo page as default
     this.app.get('/', (req, res) => {
       res.redirect('/demo/demo.html');
@@ -173,6 +186,7 @@ class WebSocketAPIServer {
     // Rate limiting
     if (!rateLimiter.checkLimit(clientIp)) {
       logger.warn('Rate limit exceeded', { ip: clientIp });
+      metrics.rateLimitHitsCounter.labels('rate_limit').inc();
       ws.close(1008, 'Rate limit exceeded');
       return;
     }
@@ -200,13 +214,18 @@ class WebSocketAPIServer {
       authPayload,
       connectedAt: Date.now(),
       channels: new Set(),
+      pingInterval: null, // Will be set below
     });
 
     if (!added) {
       logger.warn('Connection rejected (max connections reached)', { ip: clientIp });
+      metrics.rateLimitHitsCounter.labels('max_connections_per_ip').inc();
       ws.close(1008, 'Max connections per IP exceeded');
       return;
     }
+
+    // Update connection metrics
+    metrics.connectionsGauge.inc();
 
     // Send connection acknowledgment
     ws.send(JSON.stringify({
@@ -221,8 +240,24 @@ class WebSocketAPIServer {
     // Setup message handler
     ws.on('message', async (data) => {
       try {
+        // Track message size
+        const messageSize = data.length;
+
+        // Check message size limit
+        if (messageSize > config.security.maxMessageSize) {
+          logger.warn('Message too large', {
+            clientId,
+            size: messageSize,
+            maxSize: config.security.maxMessageSize,
+          });
+          metrics.errorsCounter.labels('message_too_large', 'warning').inc();
+          ws.close(1009, 'Message too large');
+          return;
+        }
+
         const message = utils.parseJSON(data.toString());
         if (!message) {
+          metrics.errorsCounter.labels('invalid_json', 'error').inc();
           ws.send(JSON.stringify({
             type: 'ERROR',
             payload: { error: 'Invalid JSON' },
@@ -230,12 +265,21 @@ class WebSocketAPIServer {
           return;
         }
 
+        // Track message processing
+        const start = Date.now();
         await router.route(clientId, message, ws);
+        const duration = (Date.now() - start) / 1000;
+
+        // Update metrics
+        metrics.messageLatency.labels(message.type || 'unknown').observe(duration);
+        metrics.messageSizeHistogram.labels(message.type || 'unknown').observe(messageSize);
+        metrics.messagesCounter.labels(message.type || 'unknown', 'success').inc();
       } catch (error) {
         logger.error('Message handling error', {
           clientId,
           error: error.message,
         });
+        metrics.errorsCounter.labels('message_handling', 'error').inc();
         ws.send(JSON.stringify({
           type: 'ERROR',
           payload: { error: 'Internal server error' },
@@ -250,15 +294,24 @@ class WebSocketAPIServer {
 
     // Setup close handler
     ws.on('close', (code, reason) => {
+      // Clear ping interval to prevent memory leak
+      const connection = connectionManager.getConnection(clientId);
+      if (connection?.metadata?.pingInterval) {
+        clearInterval(connection.metadata.pingInterval);
+      }
+
       logger.info('Connection closed', {
         clientId,
         code,
         reason: reason.toString(),
       });
       connectionManager.removeConnection(clientId);
+
+      // Update connection metrics
+      metrics.connectionsGauge.dec();
     });
 
-    // Send periodic ping
+    // Send periodic ping and store interval in connection metadata
     const pingInterval = setInterval(() => {
       if (ws.readyState === 1) {
         ws.send(JSON.stringify({ type: 'PING' }));
@@ -266,6 +319,12 @@ class WebSocketAPIServer {
         clearInterval(pingInterval);
       }
     }, 30000);
+
+    // Store ping interval in connection metadata for cleanup
+    const connection = connectionManager.getConnection(clientId);
+    if (connection) {
+      connection.metadata.pingInterval = pingInterval;
+    }
 
     logger.info('Connection established', {
       clientId,

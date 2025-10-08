@@ -1,0 +1,14 @@
+node_modules/
+coverage/
+dist/
+build/
+logs/
+*.log
+.env
+.env.*
+package-lock.json
+yarn.lock
+public/
+Dockerfile
+docker-compose.yml
+*.md

@@ -1,6 +1,7 @@
 import { logger, utils, connectionManager } from './utils.js';
 import inferenceBridge from './inference-bridge.js';
 import broker from './broker.js';
+import { validateMessage, validatePayload } from './validation.js';
 
 /**
  * Message Router
@@ -60,6 +61,16 @@ class MessageRouter {
   async route(clientId, message, ws) {
     const { type, payload = {}, requestId } = message;
 
+    // Validate message structure
+    const messageValidation = validateMessage(message);
+    if (!messageValidation.valid) {
+      return this.sendError(
+        ws,
+        requestId,
+        `Invalid message structure: ${messageValidation.errors.join(', ')}`
+      );
+    }
+
     if (!type) {
       return this.sendError(ws, requestId, 'Message type is required');
     }
@@ -67,6 +78,16 @@ class MessageRouter {
     const handler = this.handlers.get(type);
     if (!handler) {
       return this.sendError(ws, requestId, `Unknown message type: ${type}`);
+    }
+
+    // Validate payload for this message type
+    const payloadValidation = validatePayload(type, payload);
+    if (!payloadValidation.valid) {
+      return this.sendError(
+        ws,
+        requestId,
+        `Invalid payload: ${payloadValidation.errors.join(', ')}`
+      );
     }
 
     try {

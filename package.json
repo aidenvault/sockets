@@ -8,8 +8,12 @@
     "start": "NODE_ENV=production node src/server.js",
     "dev": "NODE_ENV=development node --watch src/server.js",
     "dev:simple": "NODE_ENV=development node src/server.js",
-    "test": "echo \"Run tests here\" && exit 0",
-    "lint": "echo \"Linter not configured\" && exit 0"
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
   },
   "keywords": [
     "websocket",
@@ -30,10 +34,20 @@
     "nats": "^2.19.0",
     "winston": "^3.11.0",
     "uuid": "^9.0.1",
-    "axios": "^1.6.5"
+    "axios": "^1.6.5",
+    "prom-client": "^15.0.0",
+    "opossum": "^8.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "@jest/globals": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "supertest": "^6.3.0",
+    "eslint": "^8.50.0",
+    "prettier": "^3.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
